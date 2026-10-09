@@ -1,0 +1,154 @@
+{
+  "project_name": "AuditPro AI",
+  "archetype": "Swiss & High-Contrast Tactical Finance Workspace (Archetype 4)",
+  "app_type": "hybrid_fullstack",
+  "theme": {
+    "default_mode": "dark",
+    "theme_switch_supported": true,
+    "dark_palette": {
+      "background": "#090D16",
+      "surface": "#111827",
+      "surface_hover": "#1F2937",
+      "surface_border": "rgba(255, 255, 255, 0.08)",
+      "primary": "#10B981",
+      "primary_hover": "#059669",
+      "primary_text": "#022C22",
+      "accent_cyan": "#06B6D4",
+      "warning": "#F59E0B",
+      "danger": "#EF4444",
+      "success": "#10B981",
+      "text_main": "#F9FAFB",
+      "text_muted": "#9CA3AF",
+      "text_dim": "#6B7280"
+    },
+    "light_palette": {
+      "background": "#F8FAFC",
+      "surface": "#FFFFFF",
+      "surface_hover": "#F1F5F9",
+      "surface_border": "rgba(15, 23, 42, 0.08)",
+      "primary": "#059669",
+      "primary_hover": "#047857",
+      "primary_text": "#FFFFFF",
+      "accent_cyan": "#0891B2",
+      "warning": "#D97706",
+      "danger": "#DC2626",
+      "success": "#059669",
+      "text_main": "#0F172A",
+      "text_muted": "#475569",
+      "text_dim": "#94A3B8"
+    }
+  },
+  "typography": {
+    "headings": {
+      "font_family": "Plus Jakarta Sans, Clash Display, sans-serif",
+      "h1": "text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight",
+      "h2": "text-2xl sm:text-3xl font-bold tracking-tight",
+      "h3": "text-xl sm:text-2xl font-semibold tracking-tight",
+      "h4": "text-lg font-semibold tracking-normal"
+    },
+    "body": {
+      "font_family": "IBM Plex Sans, Inter, sans-serif",
+      "size_base": "text-sm sm:text-base leading-relaxed",
+      "size_small": "text-xs sm:text-sm text-muted-foreground",
+      "size_label": "text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+    },
+    "rules": [
+      "NO INTER FOR MAIN HEADINGS. Rotate to Plus Jakarta Sans or Outfit.",
+      "Max hero heading size ceiling: text-5xl on desktop.",
+      "Maintain tight tracking (tracking-tight) on headings 24px and above.",
+      "Labels and tabular headers MUST be uppercase with letter spacing tracking-wider."
+    ]
+  },
+  "layout_and_grid": {
+    "density": "High Density Grid (Mode B for Dashboards & Finance Workspaces)",
+    "container_padding": "p-4 sm:p-6 lg:p-8",
+    "gap_spacing": "gap-4 sm:gap-6",
+    "sidebar": "Fixed desktop left sidebar (w-64) with collapsible mobile overlay nav",
+    "header": "Top glassmorphism bar (h-16 backdrop-blur-md bg-background/80 border-b border-border/50 sticky top-0 z-40)"
+  },
+  "key_features_and_flows": [
+    {
+      "id": "dashboard",
+      "title": "Dashboard Penjualan & Summary",
+      "description": "North Star metric hero (Total Omzet, Cashflow Net, Pending Piutang, Document Audit Pass Rate) with quick filters and interactive revenue/expense charts."
+    },
+    {
+      "id": "doc_upload_extraction",
+      "title": "Upload Dokumen & AI Extraction",
+      "description": "Drag-and-drop document vault (PDF/Image invoice, receipt, tax form). Live OCR/AI breakdown simulating line item extraction, confidence scores, and instant verification."
+    },
+    {
+      "id": "transaction_validation",
+      "title": "Validasi Transaksi",
+      "description": "Rule-based and AI anomaly detection for transaction records, flag duplicates, tax discrepancies, and mismatch alerts with one-click approval/rejection."
+    },
+    {
+      "id": "invoice_database",
+      "title": "Database Invoice",
+      "description": "Searchable, filterable ledger with status tags (Paid, Pending, Overdue, Disputed), bulk actions, export capabilities, and quick detail modal."
+    },
+    {
+      "id": "invoice_generator",
+      "title": "Invoice Generator Profesional",
+      "description": "Interactive live invoice designer with customized layout, tax calculation, client selection, itemized pricing, logo upload simulation, and PDF preview/download."
+    },
+    {
+      "id": "automatic_reports",
+      "title": "Laporan Otomatis",
+      "description": "Profit & Loss statement, Balance sheet summary, Tax estimation report (PPN/PPh), with automated AI summary notes and download capabilities."
+    },
+    {
+      "id": "customer_product_mgmt",
+      "title": "Manajemen Customer & Produk",
+      "description": "Dual tab interface for client directories with credit limits and product/service catalog with stock/pricing controls."
+    },
+    {
+      "id": "piutang_mgmt",
+      "title": "Manajemen Piutang (Accounts Receivable)",
+      "description": "Aging schedule breakdown (0-30 days, 31-60 days, 60+ days), automated payment reminder trigger, and risk score indicator."
+    },
+    {
+      "id": "ai_financial_assistant",
+      "title": "AI Financial Assistant",
+      "description": "Interactive AI Chatbot panel answering financial questions, forecasting revenue trends, drafting tax suggestions, and explaining ledger discrepancies in Indonesian."
+    }
+  ],
+  "image_urls": [
+    {
+      "category": "dashboard_analytics",
+      "url": "https://images.unsplash.com/photo-1551288049-bebda4e38f71?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NzV8MHwxfHNlYXJjaHwxfHxmaW5hbmNpYWwlMjBhbmFseXRpY3MlMjBkb2N1bWVudCUyMGRhc2hib2FyZCUyMGdyYXBofGVufDB8fHx8MTc5MTUyMTI3OHww&ixlib=rb-4.1.0&q=85",
+      "description": "Financial analytics performance chart"
+    },
+    {
+      "category": "data_monitoring",
+      "url": "https://images.unsplash.com/photo-1526628953301-3e589a6a8b74?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NzV8MHwxfHNlYXJjaHwyfHxmaW5hbmNpYWwlMjBhbmFseXRpY3MlMjBkb2N1bWVudCUyMGRhc2hib2FyZCUyMGdyYXBofGVufDB8fHx8MTc5MTUyMTI3OHww&ixlib=rb-4.1.0&q=85",
+      "description": "Data analytics dashboard display"
+    },
+    {
+      "category": "market_trends",
+      "url": "https://images.unsplash.com/photo-1591696205602-2f950c417cb9?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NzV8MHwxfHNlYXJjaHozfHxmaW5hbmNpYWwlMjBhbmFseXRpY3MlMjBkb2N1bWVudCUyMGRhc2hib2FyZCUyMGdyYXBofGVufDB8fHx8MTc5MTUyMTI3OHww&ixlib=rb-4.1.0&q=85",
+      "description": "Financial trend and market graph"
+    }
+  ],
+  "testing_and_attributes": {
+    "required_data_testid_convention": "kebab-case functional identifiers on every interactive element and data card",
+    "examples": [
+      "data-testid=\"nav-dashboard-link\"",
+      "data-testid=\"doc-upload-zone\"",
+      "data-testid=\"ai-extract-button\"",
+      "data-testid=\"invoice-create-submit\"",
+      "data-testid=\"invoice-table-row-101\"",
+      "data-testid=\"piutang-aging-card\"",
+      "data-testid=\"ai-chat-input\"",
+      "data-testid=\"ai-chat-send-btn\"",
+      "data-testid=\"theme-toggle-button\""
+    ]
+  },
+  "general_ui_ux_guidelines": [
+    "Ensure all interactive components (buttons, links, inputs, tabs, dropdowns) have explicit hover, active, and focus states.",
+    "Do NOT rely on transparent backgrounds for dropdowns, tooltips, or overlays — always set dark or light solid surface backgrounds with thin subtle borders.",
+    "File extension note: Project uses JavaScript (.js / .jsx) files. Write React code adhering to JSX specs.",
+    "Provide demo mock datasets in local JS state/constants for realistic Indonesian financial context (IDR currency, PPN 11%, PT standard corporate names).",
+    "Integrate 'sonner' toast notifications for instant feedback on document uploads, invoice status changes, and AI extraction completions."
+  ]
+}

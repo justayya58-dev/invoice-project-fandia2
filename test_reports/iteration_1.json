@@ -1,0 +1,86 @@
+{
+  "passed": 11,
+  "failed": 0,
+  "bugs": [],
+  "action_items": [],
+  "retest_needed": false,
+  "checks": [
+    {
+      "criterion": "Dashboard AuditPro AI tampil dengan metrik omzet, cashflow, piutang, audit pass rate, grafik revenue, invoice terbaru, dan panel Financial Assistant",
+      "name": "test_tscheck_dashboard.py::test_dashboard_summary_has_demo_metrics_and_chart",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "GET /api/auditpro/dashboard returned 200; metrics total_revenue=284650000, cashflow_net=186420000, receivables=74830000, audit_pass_rate=96.4 and chart/recent_invoices present."
+    },
+    {
+      "criterion": "Upload dokumen dan AI extraction berjalan",
+      "name": "test_tscheck_document_extraction.py::test_document_extraction_creates_deterministic_fields",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "POST /api/auditpro/documents/extract returned 200 for tscheck-upload-unique.pdf; response included extracted vendor, invoice number, dates, category, confidence, and total=subtotal+tax."
+    },
+    {
+      "criterion": "Validasi transaksi dokumen berjalan",
+      "name": "test_tscheck_document_validation.py::test_created_document_can_be_validated",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "POST /api/auditpro/documents/{created_id}/validate returned 200 and the same created id returned status=validated."
+    },
+    {
+      "criterion": "Database invoice dapat dibuka dan draft invoice dapat dibuat",
+      "name": "test_tscheck_invoice_creation.py::test_invoice_database_and_draft_creation",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "GET /api/auditpro/invoices returned 200 with invoice rows; POST /api/auditpro/invoices returned 200 for tscheck-customer-unique with status=draft and total=5000000."
+    },
+    {
+      "criterion": "Dashboard AuditPro AI tampil dengan metrik omzet, cashflow, piutang, audit pass rate, grafik revenue, invoice terbaru, dan panel Financial Assistant",
+      "name": "dashboard-overview-renders",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Dashboard rendered on localhost with IDR 284.650.000 omzet, 186.420.000 cashflow, 74.830.000 piutang, 96.4% audit rate, chart, recent invoices, and assistant panel."
+    },
+    {
+      "criterion": "Navigasi sidebar membuka modul Dokumen & AI",
+      "name": "documents-module-navigation",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Public preview navigation click opened Dokumen & AI extraction and showed upload zone, capability row, extraction result card, and document vault."
+    },
+    {
+      "criterion": "Upload dokumen dan AI extraction berjalan",
+      "name": "documents-ai-extraction",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Selected tscheck-browser-receipt.pdf appeared, extraction completed, and vendor, invoice number, total, tax, confidence, and vault were displayed. AI extraction is MOCKED deterministically per spec."
+    },
+    {
+      "criterion": "Validasi transaksi dokumen berjalan",
+      "name": "document-transaction-validation",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Created tscheck-browser-validation.jpg was extracted, validated, and displayed confirmation 'Transaksi ini sudah tervalidasi'."
+    },
+    {
+      "criterion": "Database invoice dapat dibuka dan draft invoice dapat dibuat",
+      "name": "invoice-draft-creation",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Invoice database opened; form accepted customer and due date, then displayed the newly created tscheck-browser-customer row with Draft status."
+    },
+    {
+      "criterion": "Financial Assistant menerima pertanyaan",
+      "name": "financial-assistant-chat",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Assistant accepted 'Bagaimana kondisi piutang?' and displayed the user message plus deterministic local response mentioning Rp 74,83 jt. Assistant is MOCKED locally per spec."
+    },
+    {
+      "criterion": "Responsive navigation tetap usable",
+      "name": "mobile-navigation-usable",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "At 390x844, menu opened sidebar and overlay; overlay closed on click and navigation to Dokumen & AI closed the mobile menu."
+    }
+  ]
+}
