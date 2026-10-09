@@ -53,3 +53,12 @@ export async function apiUpload<T>(path: string, formData: FormData): Promise<T>
   }
   return (await res.json()) as T;
 }
+
+export async function apiDownload(path: string): Promise<Blob> {
+  const res = await fetch(`${BASE}${path}`);
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => null);
+    throw new ApiError(res.status, errBody);
+  }
+  return res.blob();
+}

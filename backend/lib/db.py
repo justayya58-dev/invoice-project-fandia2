@@ -21,6 +21,12 @@ INDEXES: dict[str, list[IndexModel]] = {
     "status_checks": [IndexModel([("timestamp", DESCENDING)], name="timestamp_desc")],
     "audit_documents": [IndexModel([("uploaded_at", DESCENDING)], name="uploaded_at_desc")],
     "audit_invoices": [IndexModel([("issue_date", DESCENDING)], name="issue_date_desc")],
+    "audit_transactions": [
+        IndexModel([("id", ASCENDING)], name="transaction_id", unique=True),
+        IndexModel([("status", ASCENDING), ("transaction_date", DESCENDING)], name="status_transaction_date"),
+        IndexModel([("reference_number", ASCENDING), ("total", ASCENDING)], name="reference_total"),
+        IndexModel([("created_at", DESCENDING)], name="created_at_desc"),
+    ],
 }
 
 
