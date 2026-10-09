@@ -5,7 +5,7 @@ AuditPro AI is a dark-first finance operations workspace for Indonesian business
 
 ## Current MVP
 - Dashboard summary with IDR revenue, cashflow, receivables, audit pass rate, trend chart, and recent invoices.
-- Document vault with upload metadata, deterministic demo AI extraction, confidence score, and validation action.
+- Document vault with secure multipart upload, real Gemini 3.8 Flash OCR for PDF/JPG/PNG invoices, confidence score, and validation action.
 - Invoice database with realistic Indonesian demo data and draft invoice creation.
 - Financial Assistant panel with local/demo responses.
 
@@ -15,10 +15,11 @@ AuditPro AI is a dark-first finance operations workspace for Indonesian business
 - `DashboardSummary`: north-star metrics, chart points, and recent invoices.
 
 ## Key flow
-Open dashboard → pilih Dokumen → pilih file PDF/JPG → jalankan ekstraksi AI demo → review hasil → validasi dokumen.
+Open dashboard → pilih Dokumen → pilih file PDF/JPG/PNG maksimal 10 MB → jalankan Gemini OCR → review field hasil → validasi dokumen.
 
 ## Auth
 Tidak ada autentikasi pada demo ini. Semua data bersifat lokal/demo.
 
 ## Integrations
-Tidak ada integrasi pihak ketiga. Ekstraksi AI dan Financial Assistant saat ini MOCKED secara deterministik untuk preview.
+- Gemini 3.8 Flash melalui Emergent Universal Key membaca isi PDF/gambar invoice dan mengembalikan field terstruktur. File hanya disimpan sementara dan langsung dihapus setelah OCR.
+- Financial Assistant masih MOCKED secara deterministik untuk preview.

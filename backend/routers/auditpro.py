@@ -1,7 +1,4 @@
-from datetime import datetime, timezone
-import uuid
-
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, File, HTTPException, UploadFile
 from pymongo import ReturnDocument
 
 from lib.dates import today_iso
@@ -9,14 +6,21 @@ from lib.db import db
 from models.auditpro import (
     AuditDocument,
     DashboardSummary,
-    DocumentExtractCreate,
     ExtractionData,
     Invoice,
     InvoiceCreate,
     InvoiceItem,
 )
+from services.ocr import OCR_MODEL, OcrExtractionError, extract_invoice
 
 router = APIRouter(prefix="/auditpro", tags=["auditpro"])
+
+MAX_DOCUMENT_BYTES = 10 * 1024 * 1024
+FILE_SIGNATURES = {
+    "application/pdf": (b"%PDF-", ".pdf"),
+    "image/png": (b"\x89PNG\r\n\x1a\n", ".png"),
+    "image/jpeg": (b"\xff\xd8\xff", ".jpg"),
+}
 
 
 def demo_documents() -> list[AuditDocument]:
@@ -113,24 +117,36 @@ async def get_documents() -> list[AuditDocument]:
 
 
 @router.post("/documents/extract", response_model=AuditDocument)
-async def extract_document(input: DocumentExtractCreate) -> AuditDocument:
-    today = today_iso()
-    stem = input.file_name.rsplit(".", 1)[0].replace("-", " ").replace("_", " ").title()
-    extraction = ExtractionData(
-        vendor=stem or "Vendor Baru",
-        invoice_number=f"AI-{today.replace('-', '')[-6:]}-{str(uuid.uuid4())[:4].upper()}",
-        invoice_date=today,
-        due_date=today,
-        subtotal=7250000,
-        tax=797500,
-        total=8047500,
-        category="Operasional",
-    )
+async def extract_document(file: UploadFile = File(...)) -> AuditDocument:
+    file_bytes = await file.read(MAX_DOCUMENT_BYTES + 1)
+    await file.close()
+    if not file_bytes:
+        raise HTTPException(status_code=422, detail="File kosong tidak dapat diproses")
+    if len(file_bytes) > MAX_DOCUMENT_BYTES:
+        raise HTTPException(status_code=413, detail="Ukuran file maksimal 10 MB")
+
+    detected_type: str | None = None
+    suffix = ""
+    for mime_type, (signature, extension) in FILE_SIGNATURES.items():
+        if file_bytes.startswith(signature):
+            detected_type = mime_type
+            suffix = extension
+            break
+    if not detected_type:
+        raise HTTPException(status_code=415, detail="Format file harus PDF, JPG, atau PNG yang valid")
+
+    try:
+        extraction, confidence = await extract_invoice(file_bytes, detected_type, suffix)
+    except OcrExtractionError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
     document = AuditDocument(
-        file_name=input.file_name,
-        file_type=input.file_type,
-        file_size=input.file_size,
-        confidence=92,
+        file_name=file.filename or f"dokumen{suffix}",
+        file_type=detected_type,
+        file_size=len(file_bytes),
+        confidence=confidence,
+        extraction_source="gemini-ocr",
+        model_name=OCR_MODEL,
         extraction=extraction,
     )
     await db.audit_documents.insert_one(document.model_dump())

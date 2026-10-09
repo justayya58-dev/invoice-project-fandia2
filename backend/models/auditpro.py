@@ -16,12 +16,6 @@ class ExtractionData(BaseModel):
     category: str
 
 
-class DocumentExtractCreate(BaseModel):
-    file_name: str
-    file_type: str = "application/pdf"
-    file_size: int = 0
-
-
 class AuditDocument(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     file_name: str
@@ -30,6 +24,8 @@ class AuditDocument(BaseModel):
     status: Literal["review", "validated"] = "review"
     confidence: int = 94
     uploaded_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    extraction_source: Literal["demo", "gemini-ocr"] = "demo"
+    model_name: str = "seed-data"
     extraction: ExtractionData
 
 
