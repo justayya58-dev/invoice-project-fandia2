@@ -64,3 +64,45 @@ export async function apiDownload(path: string): Promise<Blob> {
 }
 
 export const apiFileUrl = (path: string) => `${BASE}${path}`;
+
+export async function apiStream(
+  path: string,
+  body: JsonBody,
+  onEvent: (event: string, data: unknown) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  const res = await fetch(`${BASE}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+    body: JSON.stringify(body),
+    signal,
+  });
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => null);
+    throw new ApiError(res.status, errBody);
+  }
+  if (!res.body) throw new Error("Streaming response body is unavailable");
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  const dispatch = (block: string) => {
+    let event = "message";
+    const dataLines: string[] = [];
+    for (const line of block.split("\n")) {
+      if (line.startsWith("event:")) event = line.slice(6).trim();
+      if (line.startsWith("data:")) dataLines.push(line.slice(5).trim());
+    }
+    if (!dataLines.length) return;
+    const raw = dataLines.join("\n");
+    onEvent(event, JSON.parse(raw) as unknown);
+  };
+  while (true) {
+    const { done, value } = await reader.read();
+    buffer += decoder.decode(value, { stream: !done });
+    const blocks = buffer.split("\n\n");
+    buffer = blocks.pop() ?? "";
+    blocks.forEach(dispatch);
+    if (done) break;
+  }
+  if (buffer.trim()) dispatch(buffer);
+}

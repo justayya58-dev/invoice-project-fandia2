@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import Literal
+from typing import Any, Literal
 import uuid
 
 from pydantic import BaseModel, Field
@@ -274,3 +274,96 @@ class TaxSummary(BaseModel):
 class TaxSyncResult(BaseModel):
     created: int
     total: int
+
+
+class AssistantSessionCreate(BaseModel):
+    title: str = "Percakapan baru"
+
+
+class AssistantSession(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    workspace_id: str = "aksara-studio"
+    title: str
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    updated_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+
+class AssistantMessageCreate(BaseModel):
+    message: str = Field(min_length=1, max_length=4000)
+
+
+class AssistantMessage(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    session_id: str
+    role: Literal["user", "assistant"]
+    content: str
+    proposal_id: str | None = None
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+
+class DraftInvoiceProposalPayload(BaseModel):
+    customer: str
+    customer_id: str | None = None
+    due_date: str
+    items: list[InvoiceItem]
+    template: Literal["modern", "classic", "minimal"] = "modern"
+    notes: str = "Draft dibuat oleh Financial Assistant."
+    tax_rate: float = Field(default=11, ge=0, le=100)
+
+
+class DraftReportProposalPayload(BaseModel):
+    title: str
+    period_start: str
+    period_end: str
+    summary_focus: str = "Ringkasan performa keuangan"
+
+
+class AssistantProposal(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    session_id: str
+    type: Literal["draft_invoice", "draft_report"]
+    title: str
+    status: Literal["pending", "confirmed", "cancelled"] = "pending"
+    payload: DraftInvoiceProposalPayload | DraftReportProposalPayload
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    decided_at: str | None = None
+    result_id: str | None = None
+
+
+class AssistantProposalDecision(BaseModel):
+    confirm: bool
+
+
+class AssistantSessionDetail(BaseModel):
+    session: AssistantSession
+    messages: list[AssistantMessage]
+    proposals: list[AssistantProposal]
+
+
+class AssistantQuickPrompt(BaseModel):
+    id: str
+    label: str
+    prompt: str
+
+
+class AssistantAuditEvent(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    session_id: str
+    action: Literal["message", "proposal_created", "proposal_confirmed", "proposal_cancelled"]
+    actor: str
+    detail: str
+    timestamp: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+
+class AssistantDraftReport(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    title: str
+    period_start: str
+    period_end: str
+    summary_focus: str
+    sales_total: float
+    expense_total: float
+    net_profit: float
+    receivables: float
+    created_by: str = "Financial Assistant"
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())

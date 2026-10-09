@@ -50,6 +50,7 @@ import ReportsView from "@/components/auditpro/ReportsView";
 import TransactionsView from "@/components/auditpro/TransactionsView";
 import InvoiceStudio from "@/components/auditpro/InvoiceStudio";
 import TaxWorkspace from "@/components/auditpro/TaxWorkspace";
+import AssistantWorkspace from "@/components/auditpro/AssistantWorkspace";
 import { apiGet, apiPost, apiUpload } from "@/lib/api";
 import type { Transaction, TransactionAction, TransactionActionRequest, TransactionStatus } from "@/types/finance";
 
@@ -109,11 +110,11 @@ interface DashboardSummary {
   chart: ChartPoint[];
   recent_invoices: Invoice[];
 }
-type View = "dashboard" | "documents" | "transactions" | "invoices" | "reports" | "tax" | "customers" | "receivables";
+type View = "dashboard" | "documents" | "transactions" | "invoices" | "reports" | "tax" | "assistant" | "customers" | "receivables";
 type ChatMessage = { from: "ai" | "user"; text: string };
 
 const navGroups: { label: string; items: { id: View; label: string; icon: LucideIcon }[] }[] = [
-  { label: "Workspace", items: [{ id: "dashboard", label: "Overview", icon: LayoutDashboard }, { id: "documents", label: "Dokumen & AI", icon: FileSearch }, { id: "transactions", label: "Transaksi", icon: Boxes }, { id: "invoices", label: "Invoice", icon: ReceiptText }] },
+  { label: "Workspace", items: [{ id: "dashboard", label: "Overview", icon: LayoutDashboard }, { id: "assistant", label: "AI Assistant", icon: Bot }, { id: "documents", label: "Dokumen & AI", icon: FileSearch }, { id: "transactions", label: "Transaksi", icon: Boxes }, { id: "invoices", label: "Invoice", icon: ReceiptText }] },
   { label: "Operasional", items: [{ id: "reports", label: "Laporan otomatis", icon: BarChart3 }, { id: "tax", label: "Pajak & e-Faktur", icon: BriefcaseBusiness }, { id: "customers", label: "Customer & Produk", icon: UsersRound }, { id: "receivables", label: "Piutang", icon: WalletCards }] },
 ];
 
@@ -168,6 +169,10 @@ function RevenueChart({ points }: { points: ChartPoint[] }) {
 }
 
 function AssistantPanel() {
+  return <AssistantWorkspace compact />;
+}
+
+function LegacyAssistantPanel() {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([{ from: "ai", text: "Halo Raka, saya siap membantu membaca kondisi keuangan Anda." }]);
   const sendMessage = () => { const clean = input.trim(); if (!clean) return; setMessages((current) => [...current, { from: "user", text: clean }, { from: "ai", text: clean.toLowerCase().includes("piutang") ? "Piutang berjalan sebesar Rp 74,83 jt. Fokuskan follow-up pada PT Satu Visi yang sudah melewati jatuh tempo." : "Dari data demo, omzet Februari naik 12,8% dibanding bulan sebelumnya. Saya bisa bantu drill-down ke invoice atau biaya." }]); setInput(""); };
@@ -209,6 +214,7 @@ function ModulePlaceholder({ view }: { view: Exclude<View, "dashboard" | "docume
   if (view === "transactions") return <TransactionsView />;
   if (view === "reports") return <ReportsView />;
   if (view === "tax") return <TaxWorkspace />;
+  if (view === "assistant") return <AssistantWorkspace />;
   const moduleCopy: Record<"customers" | "receivables", [string, string, LucideIcon]> = { customers: ["Customer & Produk", "Satu direktori untuk relasi bisnis, katalog produk, dan kontrol harga.", UsersRound], receivables: ["Manajemen piutang", "Jadwal aging dan prioritas follow-up untuk menjaga cashflow tetap sehat.", WalletCards] };
   const copy = moduleCopy[view];
   const Icon = copy[2];

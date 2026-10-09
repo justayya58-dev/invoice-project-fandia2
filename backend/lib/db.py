@@ -38,6 +38,10 @@ INDEXES: dict[str, list[IndexModel]] = {
         IndexModel([("source_type", ASCENDING), ("source_id", ASCENDING)], name="tax_source", unique=True),
         IndexModel([("tax_period", ASCENDING), ("status", ASCENDING)], name="tax_period_status"),
     ],
+    "assistant_sessions": [IndexModel([("id", ASCENDING)], name="assistant_session_id", unique=True), IndexModel([("updated_at", DESCENDING)], name="assistant_session_updated")],
+    "assistant_messages": [IndexModel([("session_id", ASCENDING), ("created_at", ASCENDING)], name="assistant_message_thread")],
+    "assistant_proposals": [IndexModel([("id", ASCENDING)], name="assistant_proposal_id", unique=True), IndexModel([("session_id", ASCENDING), ("created_at", DESCENDING)], name="assistant_proposal_thread")],
+    "assistant_audit": [IndexModel([("session_id", ASCENDING), ("timestamp", DESCENDING)], name="assistant_audit_thread")],
 }
 
 
