@@ -1,0 +1,219 @@
+{
+  "iteration": 3,
+  "summary": "34 backend tests across 10 files (33 passed, 1 failed — reproducible race-condition bug) and 15 browser checks (all passed after fixing 4 stale artifacts whose selectors/assumptions predated the app's evolution to real Gemini OCR + InvoiceStudio). All 8 acceptance-matrix criteria exercised.",
+  "passed": 15,
+  "failed": 1,
+  "bugs": [
+    {
+      "severity": "medium",
+      "criterion": "Core System: OCR/AI extraction, validasi, duplicate detection, approval, arsip, dan audit trail",
+      "title": "GET /api/auditpro/tax/documents 500s under concurrent load due to TOCTOU race in sync_sources()",
+      "description": "routers/tax.py sync_sources() does a find_one check for an existing tax document per (source_type, source_id) and only inserts if absent. This check-then-insert is not atomic: when two requests to GET /auditpro/tax/documents arrive close together after a new approved transaction/invoice exists, both can pass the 'not yet synced' check and then race on the unique (source_type, source_id) index. The losing request gets an unhandled pymongo.errors.DuplicateKeyError -> unhandled 500 instead of idempotently returning the already-synced document. Reproduced deterministically with 6 concurrent GETs after approving a fresh transaction (both via raw curl against :8001 and via a dedicated pytest using httpx.AsyncClient).",
+      "evidence": "backend test tests/test_tscheck_tax_sync_race_condition.py::test_concurrent_tax_document_sync_does_not_500 — created tscheck-race-vendor-<suffix> transaction, submitted+approved it, fired 6 concurrent GET /auditpro/tax/documents; result on 2 separate runs: statuses=[200,200,500,200,200,200] and [200,200,200,200,200,500]. Backend log: pymongo.errors.DuplicateKeyError: E11000 duplicate key error collection: app.audit_tax_documents index: tax_source dup key {source_type: 'transaction', source_id: '...'}. Also observed live via browser regression check (console error '500 (Internal Server Error)' on GET /api/auditpro/tax/documents while navigating nav items in rapid succession on the public preview URL)."
+    }
+  ],
+  "action_items": [
+    {
+      "type": "gap_not_bug",
+      "criterion": "Piutang dan pembayaran: aging bucket, reminder, dan tracking pembayaran",
+      "note": "Receivables total is a single aggregate (sum of sent+overdue invoice totals, verified consistent between /dashboard and /reports/summary). No aging bucket, no partial-payment ledger, no reminder/follow-up workflow fields exist on the Invoice schema (confirmed absent: aging_bucket, amount_paid, reminder_sent_at, payments). The 'Piutang' nav item is an explicit preview shell ('Demo mode' badge) per seed_facts — this matches spec_deviations, not a regression."
+    },
+    {
+      "type": "gap_not_bug",
+      "criterion": "Enterprise features: authentication, role permission, admin aggregate dashboard, smart approvals, enterprise security, predictive analytics",
+      "note": "No login, no auth middleware, no role/permission fields anywhere in the Transaction/Invoice schemas. Every endpoint tested accepts anonymous requests (dashboard, transactions GET/POST, tax/summary). This matches seed_facts ('Aplikasi tidak memiliki login') and spec_deviations (Tahap 5 not implemented) — reported as a declared gap, not a defect."
+    },
+    {
+      "type": "gap_not_bug",
+      "criterion": "Sales & Finance: dashboard penjualan, sales report, filter periode",
+      "note": "The dashboard chart's 'Filter periode' control only shows a static toast ('Filter periode: 6 bulan terakhir'); it does not change the displayed data. The Reports view shows a fixed period label with no date-range inputs. The backend DOES support start/end query params on /reports/summary (verified via curl), but no UI surfaces them — period filtering is not actually usable from the UI today."
+    },
+    {
+      "type": "gap_not_bug",
+      "criterion": "Tax/export coverage dan integrasi eksternal",
+      "note": "e-Faktur export is CSV preview only (no DJP integration); no email-invoice or external business integrations beyond Gemini were found in routers or UI. Matches spec_deviations."
+    },
+    {
+      "type": "stale_artifact_fixed",
+      "note": "4 pre-existing check artifacts (documents-ai-extraction, document-transaction-validation, invoice-draft-creation, financial-assistant-chat, dashboard-overview-renders, tests/test_tscheck_document_extraction.py, test_tscheck_document_validation.py, test_tscheck_dashboard.py, test_tscheck_invoice_creation.py) were authored against an earlier mocked/placeholder version of the app (fake OCR text buffer, legacy flat invoice table, hardcoded global dashboard numbers). They were updated in this iteration to match the current real-Gemini-OCR / InvoiceStudio / database-derived-metrics implementation, per seed_facts warning that global counts/values must not be assumed fixed."
+    }
+  ],
+  "retest_needed": true,
+  "checks": [
+    {
+      "criterion": "Core System: OCR/AI extraction, validasi, duplicate detection, approval, arsip, dan audit trail",
+      "name": "test_tscheck_document_extraction.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "POST /auditpro/documents/extract with real PDF fixture (magic-byte valid, invoice text) -> 200, extraction.vendor='PT Tscheck Mandiri Jaya', invoice_number='TSK-INV-90210', total=subtotal+tax, transaction_id linked. Invalid file (text/plain) -> 415."
+    },
+    {
+      "criterion": "Core System: OCR/AI extraction, validasi, duplicate detection, approval, arsip, dan audit trail",
+      "name": "test_tscheck_document_validation.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "Created doc -> transaction submit (200, status=review) -> approve (200, status=approved) -> GET /auditpro/documents shows matching doc with status=approved. Unknown transaction id action -> 404."
+    },
+    {
+      "criterion": "Core System: OCR/AI extraction, validasi, duplicate detection, approval, arsip, dan audit trail",
+      "name": "test_tscheck_duplicate_detection.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "Two extracts of the identical fixture (same reference+total) -> GET /auditpro/transactions shows second transaction duplicate_suspected=true with duplicate_of pointing to an earlier transaction id."
+    },
+    {
+      "criterion": "Core System: OCR/AI extraction, validasi, duplicate detection, approval, arsip, dan audit trail",
+      "name": "test_tscheck_transaction_approval_audit.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "draft->submit(200,review)->approve(200,approved) with audit_trail containing 'submitted'+'approved'; draft->submit->reject(200,rejected) with note preserved in audit_trail; draft->approve directly -> 409."
+    },
+    {
+      "criterion": "Core System: OCR/AI extraction, validasi, duplicate detection, approval, arsip, dan audit trail",
+      "name": "documents-ai-extraction",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Uploaded real PDF via doc-file-input, clicked ai-extract-button, extracted-vendor-value='PT Tscheck Mandiri Jaya', extracted-invoice-number-value='TSK-INV-90210', extracted-total-value and extracted-tax-value show 'Rp', document-vault-card visible. Screenshot: document-extraction."
+    },
+    {
+      "criterion": "Core System: OCR/AI extraction, validasi, duplicate detection, approval, arsip, dan audit trail",
+      "name": "document-transaction-validation",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Upload -> extract -> validate-document-button clicked twice (submit then approve) -> validated-state text 'sudah tervalidasi' and status-badge-validated visible. Screenshot: document-validated."
+    },
+    {
+      "criterion": "Core System: OCR/AI extraction, validasi, duplicate detection, approval, arsip, dan audit trail",
+      "name": "transaction-duplicate-approval-audit",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Created two manual transactions with identical reference TSCHECK-DUP-<ts> and total -> both rows present (duplicate scenario), approved the first via submit+approve row actions, opened transaction-audit-content, audit-event-action-0 visible. Screenshots: duplicate-rows-created, audit-trail-visible."
+    },
+    {
+      "criterion": "Transaction & Invoice Management: input manual, customer/product database, rekap, generator, nomor otomatis, terbilang, kalkulasi, branding, PDF/Excel",
+      "name": "test_tscheck_invoice_creation.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "POST /auditpro/invoices with 2x2,500,000 item @11% tax -> subtotal=5,000,000 tax=550,000 total=5,550,000, status=draft, number assigned; second create gets a different auto-number; due_date in the past -> 422."
+    },
+    {
+      "criterion": "Transaction & Invoice Management: input manual, customer/product database, rekap, generator, nomor otomatis, terbilang, kalkulasi, branding, PDF/Excel",
+      "name": "test_tscheck_customer_product_master.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "POST /auditpro/customers and /auditpro/products create+list correctly; a created customer_id + product_id used as an invoice line item produces subtotal=750,000, tax≈82,500 (11%), total≈832,500."
+    },
+    {
+      "criterion": "Transaction & Invoice Management: input manual, customer/product database, rekap, generator, nomor otomatis, terbilang, kalkulasi, branding, PDF/Excel",
+      "name": "test_tscheck_invoice_payment_workflow.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "draft invoice -> send (200,status=sent) -> mark_paid (200,status=paid,paid_at set) creates exactly one linked income transaction with source=invoice, matching reference_number and total; mark_paid directly from draft -> 409."
+    },
+    {
+      "criterion": "Transaction & Invoice Management: input manual, customer/product database, rekap, generator, nomor otomatis, terbilang, kalkulasi, branding, PDF/Excel",
+      "name": "invoice-studio-template-calc-workflow",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Selected 'classic' template, filled customer/due date/item qty=2 price=1,000,000 -> live preview shows subtotal 2.000.000, tax 220.000, total 2.220.000, terbilang (preview-words) populated; save draft -> send -> mark paid -> export-pdf-button visible. Screenshot: invoice-workflow-complete."
+    },
+    {
+      "criterion": "Transaction & Invoice Management: input manual, customer/product database, rekap, generator, nomor otomatis, terbilang, kalkulasi, branding, PDF/Excel",
+      "name": "invoice-studio-customer-product-master",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "In Invoice Studio > Master data, added tscheck-master-<ts>-customer and -product; customer-master-count/product-master-count updated; new customer appears in the invoice generator's customer select. Screenshots: masters-added, customer-in-generator-select."
+    },
+    {
+      "criterion": "Transaction & Invoice Management: input manual, customer/product database, rekap, generator, nomor otomatis, terbilang, kalkulasi, branding, PDF/Excel",
+      "name": "invoice-draft-creation",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Created a new draft invoice via the generator and confirmed its auto-number appears in the database (ledger) view's invoice-studio-table. Screenshot: invoice-database-lists-new-draft."
+    },
+    {
+      "criterion": "Sales & Finance: dashboard penjualan, sales report, filter periode",
+      "name": "test_tscheck_dashboard.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "GET /auditpro/dashboard returns sane metric types, chart length>=6, period_label present; dashboard.receivables equals sum of invoice totals where status in (sent, overdue) — verified exact equality."
+    },
+    {
+      "criterion": "Sales & Finance: dashboard penjualan, sales report, filter periode",
+      "name": "dashboard-overview-renders",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "dashboard-title, revenue/cashflow/receivables/audit-rate metric cards render with Rp/% formatting (not asserting fixed demo numbers since they are DB-derived and mutate across test runs), revenue-chart-card, recent-invoices-card, ai-assistant-panel all visible."
+    },
+    {
+      "criterion": "Sales & Finance: dashboard penjualan, sales report, filter periode",
+      "name": "sales-dashboard-chart-and-filter",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "revenue-chart renders with legends; clicking revenue-chart-filter-button only shows a cosmetic 'Filter periode' toast (confirmed via text match), Reports view shows a fixed report-period-value with no date-range control — documents that period filtering is backend-capable (?start=&end= verified via curl) but not exposed in the UI."
+    },
+    {
+      "criterion": "Piutang dan pembayaran: aging bucket, reminder, dan tracking pembayaran",
+      "name": "test_tscheck_receivables_gap.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "dashboard.receivables == reports/summary.receivables == sum(sent+overdue invoice totals); invoice schema confirmed missing aging_bucket/amount_paid/reminder_sent_at/payments fields (documents the gap)."
+    },
+    {
+      "criterion": "Piutang dan pembayaran: aging bucket, reminder, dan tracking pembayaran",
+      "name": "piutang-nav-preview-shell",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "nav-receivables-link leads to receivables-title with receivables-preview-status containing 'Demo mode' and a preview heading — confirms Piutang nav is a preview shell, no aging bucket/reminder UI exists. Screenshot: piutang-preview-shell."
+    },
+    {
+      "criterion": "AI Feature: Financial Assistant dan insight bisnis grounded",
+      "name": "test_tscheck_assistant_proposal_flow.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "GET quick-prompts non-empty; POST session; POST message streams SSE with event types meta/delta/done, assembled answer mentions 'Rp'/'piutang'; a report-draft request streams a 'proposal' event (status=pending), audit shows proposal_created; POST decision confirm=true -> status=confirmed with result_id, audit shows a confirm-related action; POST decision confirm=false on a separate proposal -> status=cancelled, result_id=null (no side effect)."
+    },
+    {
+      "criterion": "AI Feature: Financial Assistant dan insight bisnis grounded",
+      "name": "assistant-streaming-proposal-confirm",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "assistant-safety-note shows 'Draft hanya dibuat setelah konfirmasi'; quick prompt produces a non-empty streamed assistant-message-content; a free-text draft-report request surfaces an assistant-proposal-status-* = 'Menunggu konfirmasi' card; clicking assistant-proposal-confirm-* shows assistant-proposal-result-* containing 'Draft dibuat'. Screenshots: assistant-quick-prompt-response, assistant-proposal-pending, assistant-proposal-confirmed."
+    },
+    {
+      "criterion": "AI Feature: Financial Assistant dan insight bisnis grounded",
+      "name": "financial-assistant-chat",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Dashboard-embedded compact ai-assistant-panel accepts a question and renders a non-empty streamed answer in assistant-message-content-*. Screenshot: assistant-response."
+    },
+    {
+      "criterion": "Tax/export coverage dan integrasi eksternal",
+      "name": "tax-dashboard-renders / tax-sync-idempotent-button / tax-validation-completeness-flow / tax-rate-profile-preview-updates / tax-workflow-status-transitions / tax-reported-edit-needs-correction / tax-export-downloads-available / tax-phase1-2-modules-accessible (re-run, authored in prior iteration)",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "All 8 pre-existing tax browser checks re-ran green this iteration: PPN rate profile preview, sync idempotency, completeness/validation flow, workflow status transitions (draft->validated->reported->needs_correction), and CSV/XLSX/e-Faktur export controls all present and functional."
+    },
+    {
+      "criterion": "Tax/export coverage dan integrasi eksternal",
+      "name": "test_tscheck_tax_sync_race_condition.py",
+      "lane": "backend",
+      "status": "failed",
+      "evidence": "6 concurrent GET /auditpro/tax/documents after approving a fresh transaction -> one request returns 500 (DuplicateKeyError on unique index (source_type, source_id)) instead of 200. Reproduced on 2 separate runs: [200,200,500,200,200,200] and [200,200,200,200,200,500]. See bugs[0]."
+    },
+    {
+      "criterion": "Enterprise features: authentication, role permission, admin aggregate dashboard, smart approvals, enterprise security, predictive analytics",
+      "name": "test_tscheck_enterprise_auth_gap.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "dashboard/transactions GET+POST/tax-summary all respond <401 with no credentials (no auth gate exists, as expected per seed_facts); transaction schema confirmed missing approver_role/required_role/permissions/approval_threshold fields. Documents the declared Tahap-5 gap, not a defect."
+    },
+    {
+      "criterion": "Regresi dan stabilitas seluruh modul yang tersedia",
+      "name": "regression-nav-all-modules",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Run against public preview URL https://preview-fitur-web.preview.emergentagent.com: navigated dashboard -> assistant -> documents -> transactions -> invoices -> reports -> tax -> customers -> receivables; every target content test-id became visible with no blank pages. One backend console error (500 on GET /api/auditpro/tax/documents) surfaced during this navigation, matching the race-condition bug already captured in test_tscheck_tax_sync_race_condition.py — reported there, not duplicated as a separate bug entry."
+    }
+  ]
+}
