@@ -1,5 +1,6 @@
 from fastapi import APIRouter, File, HTTPException, UploadFile
 import csv
+import base64
 from datetime import date, datetime, timezone
 import io
 import uuid
@@ -13,11 +14,18 @@ from lib.db import db
 from models.auditpro import (
     AuditDocument,
     AuditEvent,
+    CompanyProfile,
+    CompanyProfileUpdate,
+    Customer,
+    CustomerCreate,
     DashboardSummary,
     ExtractionData,
     Invoice,
+    InvoiceActionRequest,
     InvoiceCreate,
     InvoiceItem,
+    Product,
+    ProductCreate,
     ReportCategory,
     ReportSummary,
     Transaction,
@@ -25,6 +33,7 @@ from models.auditpro import (
     TransactionCreate,
 )
 from services.ocr import OCR_MODEL, OcrExtractionError, extract_invoice
+from services.invoice_exports import amount_words, build_invoice_pdf, build_invoice_xlsx
 
 router = APIRouter(prefix="/auditpro", tags=["auditpro"])
 
@@ -103,6 +112,44 @@ async def ensure_demo_invoices() -> None:
         await db.audit_invoices.insert_many([item.model_dump() for item in demo_invoices()])
 
 
+def default_company() -> CompanyProfile:
+    return CompanyProfile(
+        name="Aksara Studio",
+        address="Jl. Jenderal Sudirman No. 18, Jakarta Selatan 12190",
+        email="finance@aksarastudio.id",
+        phone="+62 21 555 0188",
+        tax_id="01.234.567.8-901.000",
+        bank_name="Bank Central Asia",
+        bank_account="0123456789 a.n. Aksara Studio",
+        accent_color="#10B981",
+    )
+
+
+def demo_customers() -> list[Customer]:
+    return [
+        Customer(id="CUS-001", name="PT Arunika Jaya", email="finance@arunikajaya.co.id", phone="+62 21 7788 1200", address="Jl. Gatot Subroto Kav. 32, Jakarta", tax_id="02.111.222.3-444.000"),
+        Customer(id="CUS-002", name="CV Kreasi Digital", email="billing@kreasidigital.id", phone="+62 812 9900 1122", address="Jl. Asia Afrika No. 45, Bandung", tax_id="03.555.666.7-888.000"),
+        Customer(id="CUS-003", name="PT Satu Visi", email="ap@satuvisi.co.id", phone="+62 31 6677 8800", address="Jl. Basuki Rahmat No. 72, Surabaya", tax_id="04.777.888.9-000.000"),
+    ]
+
+
+def demo_products() -> list[Product]:
+    return [
+        Product(id="PRD-001", name="Konsultasi Audit", description="Layanan konsultasi dan review dokumen", sku="SRV-AUDIT", unit="paket", price=7500000),
+        Product(id="PRD-002", name="Implementasi Sistem", description="Implementasi workflow finansial", sku="SRV-IMPL", unit="proyek", price=15000000),
+        Product(id="PRD-003", name="Retainer Bulanan", description="Pendampingan operasional bulanan", sku="SRV-RET", unit="bulan", price=5000000),
+    ]
+
+
+async def ensure_master_data() -> None:
+    if await db.audit_company.count_documents({}) == 0:
+        await db.audit_company.insert_one(default_company().model_dump())
+    if await db.audit_customers.count_documents({}) == 0:
+        await db.audit_customers.insert_many([item.model_dump() for item in demo_customers()])
+    if await db.audit_products.count_documents({}) == 0:
+        await db.audit_products.insert_many([item.model_dump() for item in demo_products()])
+
+
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -178,7 +225,7 @@ async def report_summary(period_start: str, period_end: str) -> ReportSummary:
         bucket = categories.setdefault(item.category, {"income": 0.0, "expense": 0.0})
         bucket[item.type] += item.total
     receivables = await db.audit_invoices.aggregate([
-        {"$match": {"status": {"$in": ["pending", "overdue"]}}},
+        {"$match": {"status": {"$in": ["pending", "sent", "overdue"]}}},
         {"$group": {"_id": None, "total": {"$sum": "$total"}}},
     ]).to_list(1)
     return ReportSummary(
@@ -227,7 +274,7 @@ async def get_dashboard() -> DashboardSummary:
         cashflow_net=current.net_profit,
         receivables=current.receivables,
         audit_pass_rate=round(counts.get("approved", 0) / decided * 100, 1) if decided else 0,
-        active_invoices=sum(invoice.status in {"pending", "overdue"} for invoice in invoices),
+        active_invoices=sum(invoice.status in {"pending", "sent", "overdue"} for invoice in invoices),
         pending_reviews=counts.get("review", 0),
         chart=chart,
         recent_invoices=invoices,
@@ -418,21 +465,170 @@ async def export_report_csv(start: str | None = Query(default=None), end: str | 
 @router.get("/invoices", response_model=list[Invoice])
 async def get_invoices() -> list[Invoice]:
     await ensure_demo_invoices()
+    await db.audit_invoices.update_many({"status": "pending"}, {"$set": {"status": "sent"}})
+    await db.audit_invoices.update_many({"status": "sent", "due_date": {"$lt": today_iso()}}, {"$set": {"status": "overdue"}})
     invoices = await db.audit_invoices.find().sort("issue_date", -1).to_list(100)
     return [Invoice(**invoice) for invoice in invoices]
 
 
 @router.post("/invoices", response_model=Invoice)
 async def create_invoice(input: InvoiceCreate) -> Invoice:
+    await ensure_master_data()
+    try:
+        due_date = date.fromisoformat(input.due_date)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail="Format jatuh tempo harus YYYY-MM-DD") from exc
+    if due_date < date.fromisoformat(today_iso()):
+        raise HTTPException(status_code=422, detail="Jatuh tempo tidak boleh sebelum tanggal invoice")
     items = input.items or [InvoiceItem(description="Layanan konsultasi", quantity=1, price=5000000, total=5000000)]
+    normalized_items = [InvoiceItem(product_id=item.product_id, description=item.description, unit=item.unit, quantity=item.quantity, price=item.price, total=round(item.quantity * item.price, 2)) for item in items]
+    subtotal = sum(item.total for item in normalized_items)
+    tax = round(subtotal * input.tax_rate / 100, 2)
+    total = subtotal + tax
+    year = date.fromisoformat(today_iso()).year
+    counter = await db.audit_counters.find_one_and_update(
+        {"_id": f"invoice-{year}"}, {"$inc": {"value": 1}}, upsert=True, return_document=ReturnDocument.AFTER
+    )
     invoice = Invoice(
-        number=f"INV-{today_iso().replace('-', '')}-{str(uuid.uuid4())[:4].upper()}",
+        number=f"INV/AS/{year}/{counter['value']:04d}",
         customer=input.customer,
+        customer_id=input.customer_id,
         issue_date=today_iso(),
         due_date=input.due_date,
-        total=sum(item.total for item in items),
+        subtotal=subtotal,
+        tax_rate=input.tax_rate,
+        tax=tax,
+        total=total,
+        amount_words=amount_words(total),
+        template=input.template,
+        notes=input.notes,
         status="draft",
-        items=items,
+        items=normalized_items,
     )
     await db.audit_invoices.insert_one(invoice.model_dump())
     return invoice
+
+
+@router.post("/invoices/{invoice_id}/action", response_model=Invoice)
+async def transition_invoice(invoice_id: str, input: InvoiceActionRequest) -> Invoice:
+    await ensure_demo_invoices()
+    doc = await db.audit_invoices.find_one({"id": invoice_id})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Invoice tidak ditemukan")
+    invoice = Invoice(**doc)
+    transitions = {("draft", "send"): "sent", ("sent", "mark_paid"): "paid", ("overdue", "mark_paid"): "paid", ("sent", "mark_overdue"): "overdue"}
+    target = transitions.get((invoice.status, input.action))
+    if not target:
+        raise HTTPException(status_code=409, detail=f"Aksi {input.action} tidak valid untuk invoice {invoice.status}")
+    updates: dict[str, object] = {"status": target}
+    if target == "sent":
+        updates["sent_at"] = now_iso()
+    if target == "paid":
+        updates["paid_at"] = now_iso()
+        existing = await db.audit_transactions.find_one({"source": "invoice", "reference_number": invoice.number})
+        if not existing:
+            transaction = Transaction(
+                source="invoice",
+                type="income",
+                transaction_date=today_iso(),
+                counterparty=invoice.customer,
+                reference_number=invoice.number,
+                description=f"Pembayaran {invoice.number}",
+                category="Penjualan",
+                subtotal=invoice.subtotal,
+                tax=invoice.tax,
+                total=invoice.total,
+                status="approved",
+                audit_trail=[event("created", "Dibuat otomatis dari invoice lunas"), event("approved", "Pembayaran invoice dicatat otomatis", "System")],
+            )
+            await db.audit_transactions.insert_one(transaction.model_dump())
+    updated = await db.audit_invoices.find_one_and_update({"id": invoice_id}, {"$set": updates}, return_document=ReturnDocument.AFTER)
+    return Invoice(**updated)
+
+
+async def invoice_export_context(invoice_id: str) -> tuple[Invoice, CompanyProfile, Customer | None]:
+    await ensure_master_data()
+    invoice_doc = await db.audit_invoices.find_one({"id": invoice_id})
+    if not invoice_doc:
+        raise HTTPException(status_code=404, detail="Invoice tidak ditemukan")
+    invoice = Invoice(**invoice_doc)
+    company_doc = await db.audit_company.find_one({"id": "company-profile"})
+    company = CompanyProfile(**company_doc)
+    customer_doc = await db.audit_customers.find_one({"id": invoice.customer_id}) if invoice.customer_id else None
+    return invoice, company, Customer(**customer_doc) if customer_doc else None
+
+
+@router.get("/invoices/{invoice_id}/export.pdf")
+async def export_invoice_pdf(invoice_id: str):
+    invoice, company, customer = await invoice_export_context(invoice_id)
+    payload = build_invoice_pdf(invoice, company, customer)
+    return StreamingResponse(io.BytesIO(payload), media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="{invoice.number.replace("/", "-")}.pdf"'})
+
+
+@router.get("/invoices/{invoice_id}/export.xlsx")
+async def export_invoice_xlsx(invoice_id: str):
+    invoice, company, customer = await invoice_export_context(invoice_id)
+    payload = build_invoice_xlsx(invoice, company, customer)
+    return StreamingResponse(io.BytesIO(payload), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": f'attachment; filename="{invoice.number.replace("/", "-")}.xlsx"'})
+
+
+@router.get("/company", response_model=CompanyProfile)
+async def get_company_profile() -> CompanyProfile:
+    await ensure_master_data()
+    company_doc = await db.audit_company.find_one({"id": "company-profile"})
+    return CompanyProfile(**company_doc)
+
+
+@router.put("/company", response_model=CompanyProfile)
+async def update_company_profile(input: CompanyProfileUpdate) -> CompanyProfile:
+    await ensure_master_data()
+    updated = await db.audit_company.find_one_and_update({"id": "company-profile"}, {"$set": input.model_dump()}, return_document=ReturnDocument.AFTER)
+    return CompanyProfile(**updated)
+
+
+@router.post("/company/logo", response_model=CompanyProfile)
+async def upload_company_logo(file: UploadFile = File(...)) -> CompanyProfile:
+    await ensure_master_data()
+    content = await file.read(2 * 1024 * 1024 + 1)
+    await file.close()
+    if not content or len(content) > 2 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Ukuran logo maksimal 2 MB")
+    if content.startswith(b"\xff\xd8\xff"):
+        mime_type = "image/jpeg"
+    elif content.startswith(b"\x89PNG\r\n\x1a\n"):
+        mime_type = "image/png"
+    else:
+        raise HTTPException(status_code=415, detail="Logo harus berupa JPG atau PNG")
+    data_url = f"data:{mime_type};base64,{base64.b64encode(content).decode()}"
+    updated = await db.audit_company.find_one_and_update({"id": "company-profile"}, {"$set": {"logo_data_url": data_url}}, return_document=ReturnDocument.AFTER)
+    return CompanyProfile(**updated)
+
+
+@router.get("/customers", response_model=list[Customer])
+async def get_customers() -> list[Customer]:
+    await ensure_master_data()
+    return [Customer(**doc) for doc in await db.audit_customers.find().sort("name", 1).to_list(500)]
+
+
+@router.post("/customers", response_model=Customer)
+async def create_customer(input: CustomerCreate) -> Customer:
+    await ensure_master_data()
+    customer = Customer(**input.model_dump())
+    await db.audit_customers.insert_one(customer.model_dump())
+    return customer
+
+
+@router.get("/products", response_model=list[Product])
+async def get_products() -> list[Product]:
+    await ensure_master_data()
+    return [Product(**doc) for doc in await db.audit_products.find().sort("name", 1).to_list(500)]
+
+
+@router.post("/products", response_model=Product)
+async def create_product(input: ProductCreate) -> Product:
+    await ensure_master_data()
+    if await db.audit_products.find_one({"sku": input.sku}):
+        raise HTTPException(status_code=409, detail="SKU produk sudah digunakan")
+    product = Product(**input.model_dump())
+    await db.audit_products.insert_one(product.model_dump())
+    return product

@@ -20,7 +20,13 @@ logger = logging.getLogger(__name__)
 INDEXES: dict[str, list[IndexModel]] = {
     "status_checks": [IndexModel([("timestamp", DESCENDING)], name="timestamp_desc")],
     "audit_documents": [IndexModel([("uploaded_at", DESCENDING)], name="uploaded_at_desc")],
-    "audit_invoices": [IndexModel([("issue_date", DESCENDING)], name="issue_date_desc")],
+    "audit_invoices": [
+        IndexModel([("id", ASCENDING)], name="invoice_id", unique=True),
+        IndexModel([("number", ASCENDING)], name="invoice_number", unique=True),
+        IndexModel([("issue_date", DESCENDING)], name="issue_date_desc"),
+    ],
+    "audit_customers": [IndexModel([("id", ASCENDING)], name="customer_id", unique=True), IndexModel([("name", ASCENDING)], name="customer_name")],
+    "audit_products": [IndexModel([("id", ASCENDING)], name="product_id", unique=True), IndexModel([("sku", ASCENDING)], name="product_sku", unique=True)],
     "audit_transactions": [
         IndexModel([("id", ASCENDING)], name="transaction_id", unique=True),
         IndexModel([("status", ASCENDING), ("transaction_date", DESCENDING)], name="status_transaction_date"),

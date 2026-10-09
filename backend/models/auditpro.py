@@ -77,27 +77,89 @@ class Transaction(BaseModel):
 
 
 class InvoiceItem(BaseModel):
+    product_id: str | None = None
     description: str
-    quantity: int = 1
-    price: float
-    total: float
+    unit: str = "unit"
+    quantity: float = Field(default=1, gt=0)
+    price: float = Field(ge=0)
+    total: float = Field(ge=0)
 
 
 class InvoiceCreate(BaseModel):
     customer: str
+    customer_id: str | None = None
     due_date: str
     items: list[InvoiceItem] = Field(default_factory=list)
+    template: Literal["modern", "classic", "minimal"] = "modern"
+    notes: str = "Terima kasih atas kepercayaan Anda."
+    tax_rate: float = Field(default=11, ge=0, le=100)
+
+
+class InvoiceActionRequest(BaseModel):
+    action: Literal["send", "mark_paid", "mark_overdue"]
 
 
 class Invoice(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     number: str
     customer: str
+    customer_id: str | None = None
     issue_date: str
     due_date: str
+    subtotal: float = 0
+    tax_rate: float = 11
+    tax: float = 0
     total: float
-    status: Literal["paid", "pending", "overdue", "draft"]
+    amount_words: str = ""
+    currency: str = "IDR"
+    template: Literal["modern", "classic", "minimal"] = "modern"
+    notes: str = ""
+    status: Literal["paid", "pending", "sent", "overdue", "draft"]
+    sent_at: str | None = None
+    paid_at: str | None = None
     items: list[InvoiceItem] = Field(default_factory=list)
+
+
+class CompanyProfileUpdate(BaseModel):
+    name: str
+    address: str
+    email: str
+    phone: str
+    tax_id: str
+    bank_name: str
+    bank_account: str
+    accent_color: str = "#10B981"
+
+
+class CompanyProfile(CompanyProfileUpdate):
+    id: str = "company-profile"
+    logo_data_url: str | None = None
+
+
+class CustomerCreate(BaseModel):
+    name: str
+    email: str = ""
+    phone: str = ""
+    address: str = ""
+    tax_id: str = ""
+
+
+class Customer(CustomerCreate):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+
+class ProductCreate(BaseModel):
+    name: str
+    description: str = ""
+    sku: str
+    unit: str = "unit"
+    price: float = Field(ge=0)
+
+
+class Product(ProductCreate):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
 class ChartPoint(BaseModel):
