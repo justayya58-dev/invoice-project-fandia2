@@ -199,3 +199,78 @@ class ReportSummary(BaseModel):
     approved_count: int
     pending_count: int
     categories: list[ReportCategory]
+
+
+class TaxRateProfile(BaseModel):
+    rate: Literal[0, 11, 12]
+    label: str
+    description: str
+
+
+class TaxStatusEvent(BaseModel):
+    status: Literal["draft", "review", "ready", "reported", "needs_correction"]
+    actor: str
+    timestamp: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    note: str = ""
+
+
+class TaxDocumentUpdate(BaseModel):
+    npwp: str
+    tax_invoice_number: str
+    document_date: str
+    dpp: float = Field(ge=0)
+    tax_rate: Literal[0, 11, 12]
+
+
+class TaxActionRequest(BaseModel):
+    action: Literal["submit_review", "mark_ready", "mark_reported", "request_correction"]
+    actor: str = "Raka Adinata"
+    note: str = ""
+
+
+class TaxDocument(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    source_type: Literal["invoice", "transaction"]
+    source_id: str
+    direction: Literal["input", "output"]
+    counterparty: str
+    npwp: str = ""
+    source_reference: str
+    tax_invoice_number: str = ""
+    document_date: str
+    tax_period: str
+    dpp: float
+    tax_rate: Literal[0, 11, 12]
+    vat: float
+    status: Literal["draft", "review", "ready", "reported", "needs_correction"] = "draft"
+    completeness_score: int = 0
+    missing_fields: list[str] = Field(default_factory=list)
+    validation_notes: list[str] = Field(default_factory=list)
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    updated_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    status_history: list[TaxStatusEvent] = Field(default_factory=list)
+
+
+class TaxRateSummary(BaseModel):
+    rate: int
+    dpp: float
+    vat: float
+    document_count: int
+
+
+class TaxSummary(BaseModel):
+    period: str
+    output_dpp: float
+    output_vat: float
+    input_dpp: float
+    input_vat: float
+    net_vat: float
+    ready_count: int
+    issue_count: int
+    status_counts: dict[str, int]
+    by_rate: list[TaxRateSummary]
+
+
+class TaxSyncResult(BaseModel):
+    created: int
+    total: int

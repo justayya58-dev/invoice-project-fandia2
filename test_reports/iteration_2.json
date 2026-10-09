@@ -1,0 +1,120 @@
+{
+  "passed": 15,
+  "failed": 0,
+  "bugs": [],
+  "action_items": [
+    {
+      "type": "note",
+      "severity": "low",
+      "description": "Pre-existing backend tests from iteration_1 (test_tscheck_dashboard.py, test_tscheck_invoice_creation.py, test_tscheck_document_extraction.py, test_tscheck_document_validation.py) now fail when the full suite is run together: they assert on global/hard-coded demo totals (e.g. total_revenue == 284650000) and on a JSON-body OCR extraction payload, while the current app computes dashboard totals from the live dataset and requires real multipart file upload for /documents/extract. This is test debt in previously-written artifacts (global-count assertions), not a regression introduced in this iteration, and not part of this iteration's Tahap 3 tax acceptance_matrix. Recommend the next iteration touching Tahap 1/2 criteria rewrite those four files to assert on their own created fixture rows and to post multipart files, per current fixture-isolation guidance."
+    }
+  ],
+  "retest_needed": false,
+  "checks": [
+    {
+      "criterion": "Modul Pajak & e-Faktur tersedia dari navigasi dan menampilkan dashboard masa pajak",
+      "name": "test_tscheck_tax_dashboard_summary.py::test_tax_summary_has_period_profile_fields",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "GET /api/auditpro/tax/summary?period=2026-10 returned 200 with output/input DPP+VAT, net_vat, ready/issue counts, status_counts, and by_rate for 0/11/12; GET /api/auditpro/tax/documents and /api/auditpro/tax/profiles both 200 with expected fields."
+    },
+    {
+      "criterion": "Modul Pajak & e-Faktur tersedia dari navigasi dan menampilkan dashboard masa pajak",
+      "name": "tax-dashboard-renders",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Clicked nav-tax-link; tax-workspace rendered with rate profile chips (0/11/12), output/input/net VAT cards, readiness card, and the document ledger table on the public preview URL."
+    },
+    {
+      "criterion": "Rekonsiliasi otomatis membuat dokumen pajak dari invoice dan transaksi yang memenuhi syarat",
+      "name": "test_tscheck_tax_sync_idempotent.py::test_sync_creates_tax_document_and_is_idempotent",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "Created+approved tscheck-tax-sync expense transaction; POST /auditpro/tax/sync created it as one input tax document; a second POST /auditpro/tax/sync did not duplicate the source_type+source_id pair (exactly 1 match both times)."
+    },
+    {
+      "criterion": "Rekonsiliasi otomatis membuat dokumen pajak dari invoice dan transaksi yang memenuhi syarat",
+      "name": "tax-sync-idempotent-button",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Clicked Sinkronkan twice on the live tax workspace; tax-documents-count remained identical after the first and second click, confirming no duplicate rows were added."
+    },
+    {
+      "criterion": "Validasi kelengkapan memeriksa invoice/referensi, NPWP, nomor faktur, tanggal, DPP, dan perhitungan PPN",
+      "name": "test_tscheck_tax_validation_completeness.py::test_completeness_score_reaches_100_after_filling_required_fields",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "Freshly-synced tscheck expense document started with completeness_score<100 and 'NPWP' in missing_fields; PUT /auditpro/tax/documents/{id} with full NPWP/faktur/date/DPP/rate returned completeness_score=100, missing_fields=[], vat=550000 (5,000,000*11%)."
+    },
+    {
+      "criterion": "Validasi kelengkapan memeriksa invoice/referensi, NPWP, nomor faktur, tanggal, DPP, dan perhitungan PPN",
+      "name": "tax-validation-completeness-flow",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Created+approved+synced a tscheck-browser expense; selected its row (missing-fields badge visible); filled NPWP/nomor faktur/tanggal/DPP/tarif and saved; tax-missing-fields badge disappeared after save."
+    },
+    {
+      "criterion": "Profil tarif 0%, 11%, dan 12% dapat dipilih dan PPN dihitung otomatis",
+      "name": "test_tscheck_tax_rate_profile.py::test_changing_rate_recomputes_vat_for_each_profile",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "PUT /auditpro/tax/documents/{id} with rate=0/dpp=2,000,000 -> vat=0; rate=11/dpp=3,000,000 -> vat=330,000; rate=12/dpp=4,000,000 -> vat=480,000; all matched DPP x rate exactly."
+    },
+    {
+      "criterion": "Profil tarif 0%, 11%, dan 12% dapat dipilih dan PPN dihitung otomatis",
+      "name": "tax-rate-profile-preview-updates",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "On editor with DPP=1,000,000: selecting 0% showed PPN otomatis Rp 0, 11% showed Rp 110.000, 12% showed Rp 120.000."
+    },
+    {
+      "criterion": "Workflow pajak berjalan Draft atau Perlu Perbaikan → Review → Siap e-Faktur → Dilaporkan",
+      "name": "test_tscheck_tax_workflow.py::test_incomplete_document_rejected_at_mark_ready_then_full_workflow_succeeds",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "POST .../action mark_ready on an incomplete review-stage document returned 422; after completing required fields, submit_review -> review (200), mark_ready -> ready (200), mark_reported -> reported (200); status_history contained draft/review/ready/reported in order."
+    },
+    {
+      "criterion": "Workflow pajak berjalan Draft atau Perlu Perbaikan → Review → Siap e-Faktur → Dilaporkan",
+      "name": "tax-workflow-status-transitions",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Created+approved+synced a tscheck-workflow expense; filled required fields and saved; clicked Kirim review -> status badge 'Perlu review'; clicked Siap e-Faktur -> 'Siap e-Faktur'; clicked Dilaporkan -> 'Dilaporkan'; status history entry visible."
+    },
+    {
+      "criterion": "Dokumen siap/dilaporkan yang diedit kembali masuk status Perlu Perbaikan",
+      "name": "test_tscheck_tax_correction_on_edit.py::test_editing_reported_document_moves_to_needs_correction",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "Advanced a tscheck document to status=reported, then PUT /auditpro/tax/documents/{id} with new DPP; response status=needs_correction and status_history's last entry is needs_correction."
+    },
+    {
+      "criterion": "Dokumen siap/dilaporkan yang diedit kembali masuk status Perlu Perbaikan",
+      "name": "tax-reported-edit-needs-correction",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Advanced a tscheck-correction document to Dilaporkan via API, opened it in the UI (badge showed Dilaporkan), edited DPP and clicked Simpan & validasi; badge changed to Perlu perbaikan."
+    },
+    {
+      "criterion": "Laporan masa pajak dapat diexport ke CSV, Excel, dan preview e-Faktur",
+      "name": "test_tscheck_tax_exports.py::test_csv_export_returns_valid_attachment,test_xlsx_export_returns_valid_zip_based_office_file,test_efaktur_preview_only_contains_ready_or_reported_documents",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "GET export.csv returned text/csv with attachment header and 'Arah' header row; export.xlsx returned spreadsheetml content-type with PK zip signature; efaktur-preview.csv rows all referenced tax_invoice_numbers belonging to ready/reported documents only."
+    },
+    {
+      "criterion": "Laporan masa pajak dapat diexport ke CSV, Excel, dan preview e-Faktur",
+      "name": "tax-export-downloads-available",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "CSV/Excel/Preview e-Faktur buttons visible on live preview; direct API calls for all three export endpoints returned 200 with correct content-type and the xlsx bytes started with the PK zip signature."
+    },
+    {
+      "criterion": "Modul Tahap 1 dan Tahap 2 tetap dapat diakses",
+      "name": "tax-phase1-2-modules-accessible",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Navigated Overview -> Dokumen & AI -> Transaksi -> Invoice -> Laporan -> Overview on the live preview; each view rendered its title/main-content without a blank page or thrown page error."
+    }
+  ]
+}

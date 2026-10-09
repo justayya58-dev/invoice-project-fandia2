@@ -49,6 +49,7 @@ import { Input } from "@/components/ui/input";
 import ReportsView from "@/components/auditpro/ReportsView";
 import TransactionsView from "@/components/auditpro/TransactionsView";
 import InvoiceStudio from "@/components/auditpro/InvoiceStudio";
+import TaxWorkspace from "@/components/auditpro/TaxWorkspace";
 import { apiGet, apiPost, apiUpload } from "@/lib/api";
 import type { Transaction, TransactionAction, TransactionActionRequest, TransactionStatus } from "@/types/finance";
 
@@ -108,12 +109,12 @@ interface DashboardSummary {
   chart: ChartPoint[];
   recent_invoices: Invoice[];
 }
-type View = "dashboard" | "documents" | "transactions" | "invoices" | "reports" | "customers" | "receivables";
+type View = "dashboard" | "documents" | "transactions" | "invoices" | "reports" | "tax" | "customers" | "receivables";
 type ChatMessage = { from: "ai" | "user"; text: string };
 
 const navGroups: { label: string; items: { id: View; label: string; icon: LucideIcon }[] }[] = [
   { label: "Workspace", items: [{ id: "dashboard", label: "Overview", icon: LayoutDashboard }, { id: "documents", label: "Dokumen & AI", icon: FileSearch }, { id: "transactions", label: "Transaksi", icon: Boxes }, { id: "invoices", label: "Invoice", icon: ReceiptText }] },
-  { label: "Operasional", items: [{ id: "reports", label: "Laporan otomatis", icon: BarChart3 }, { id: "customers", label: "Customer & Produk", icon: UsersRound }, { id: "receivables", label: "Piutang", icon: WalletCards }] },
+  { label: "Operasional", items: [{ id: "reports", label: "Laporan otomatis", icon: BarChart3 }, { id: "tax", label: "Pajak & e-Faktur", icon: BriefcaseBusiness }, { id: "customers", label: "Customer & Produk", icon: UsersRound }, { id: "receivables", label: "Piutang", icon: WalletCards }] },
 ];
 
 const fallbackInvoices: Invoice[] = [
@@ -207,6 +208,7 @@ function LegacyInvoicesView({ invoices }: { invoices: Invoice[] }) {
 function ModulePlaceholder({ view }: { view: Exclude<View, "dashboard" | "documents" | "invoices"> }) {
   if (view === "transactions") return <TransactionsView />;
   if (view === "reports") return <ReportsView />;
+  if (view === "tax") return <TaxWorkspace />;
   const moduleCopy: Record<"customers" | "receivables", [string, string, LucideIcon]> = { customers: ["Customer & Produk", "Satu direktori untuk relasi bisnis, katalog produk, dan kontrol harga.", UsersRound], receivables: ["Manajemen piutang", "Jadwal aging dan prioritas follow-up untuk menjaga cashflow tetap sehat.", WalletCards] };
   const copy = moduleCopy[view];
   const Icon = copy[2];

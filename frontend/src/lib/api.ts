@@ -62,3 +62,5 @@ export async function apiDownload(path: string): Promise<Blob> {
   }
   return res.blob();
 }
+
+export const apiFileUrl = (path: string) => `${BASE}${path}`;

@@ -34,6 +34,7 @@ from models.auditpro import (
 )
 from services.ocr import OCR_MODEL, OcrExtractionError, extract_invoice
 from services.invoice_exports import amount_words, build_invoice_pdf, build_invoice_xlsx
+from routers.tax import router as tax_router
 
 router = APIRouter(prefix="/auditpro", tags=["auditpro"])
 
@@ -632,3 +633,6 @@ async def create_product(input: ProductCreate) -> Product:
     product = Product(**input.model_dump())
     await db.audit_products.insert_one(product.model_dump())
     return product
+
+
+router.include_router(tax_router)

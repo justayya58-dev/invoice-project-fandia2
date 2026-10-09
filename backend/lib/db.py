@@ -33,6 +33,11 @@ INDEXES: dict[str, list[IndexModel]] = {
         IndexModel([("reference_number", ASCENDING), ("total", ASCENDING)], name="reference_total"),
         IndexModel([("created_at", DESCENDING)], name="created_at_desc"),
     ],
+    "audit_tax_documents": [
+        IndexModel([("id", ASCENDING)], name="tax_document_id", unique=True),
+        IndexModel([("source_type", ASCENDING), ("source_id", ASCENDING)], name="tax_source", unique=True),
+        IndexModel([("tax_period", ASCENDING), ("status", ASCENDING)], name="tax_period_status"),
+    ],
 }
 
 
